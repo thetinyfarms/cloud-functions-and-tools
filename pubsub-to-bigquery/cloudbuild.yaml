@@ -1,0 +1,10 @@
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+  - functions
+  - deploy
+  - sensor_data_latest
+  - --runtime=python310
+  - --trigger-topic=tinyfarms-sensors
+  - --entry-point=sensor_data_latest
+  - --service-account=tinyfarms-cloudfunctions@tinyfarms-website.iam.gserviceaccount.com
