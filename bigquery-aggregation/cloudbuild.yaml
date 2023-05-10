@@ -1,0 +1,9 @@
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+  - functions
+  - deploy
+  - aggregate_sensor_data
+  - --runtime=python310
+  - --entry-point=aggregate_data
+  - --service-account=tinyfarms-cloudfunctions@tinyfarms-website.iam.gserviceaccount.com

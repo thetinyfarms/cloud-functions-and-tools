@@ -1,0 +1,2 @@
+google-cloud-bigquery
+Flask==2.3.1
