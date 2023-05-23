@@ -1,0 +1,10 @@
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+  - functions
+  - deploy
+  - pubsub-to-image
+  - --runtime=python310
+  - --trigger-topic=tinyfarms-images
+  - --entry-point=save_image_data
+  - --service-account=tinyfarms-cloudfunctions@tinyfarms-website.iam.gserviceaccount.com
