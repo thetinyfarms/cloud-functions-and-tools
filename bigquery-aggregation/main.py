@@ -9,9 +9,10 @@ def aggregate_data(request, context=None):
         return abort(405)
     
     client = bigquery.Client()
+    assert client.project == 'tinyfarms-website'
     now = datetime.datetime.utcnow()
-    minute_start = now.replace(second=0, microsecond=0)
-    minute_end = minute_start + datetime.timedelta(minutes=1)
+    minute_end = now.replace(second=0, microsecond=0)
+    minute_start = minute_end - datetime.timedelta(minutes=1)
     delete_threshold = now - datetime.timedelta(minutes=90)
     
     # Aggregate the data
@@ -21,7 +22,7 @@ def aggregate_data(request, context=None):
             device_id,
             sensor_type,
             value,
-            TIMESTAMP_TRUNC(timestamp, MINUTE) as minute_timestamp
+            TIMESTAMP_TRUNC(timestamp, MINUTE) as minute
         FROM (
             SELECT
                 device_id,
@@ -45,12 +46,16 @@ def aggregate_data(request, context=None):
      # Run the aggregation query
     aggregation_job = client.query(aggregation_query)
     aggregation_result = aggregation_job.result()
+    assert aggregation_job.state == 'DONE'
     rows_affected_agg = aggregation_job.num_dml_affected_rows
+    assert type(rows_affected_agg) == int
 
     # Run the deletion query
     deletion_job = client.query(deletion_query)
     deletion_result = deletion_job.result()
+    assert deletion_job.state == 'DONE'
     rows_affected_del = deletion_job.num_dml_affected_rows
+    assert type(rows_affected_del) == int
 
     # Check for errors in the jobs
     if aggregation_job.errors or deletion_job.errors:
