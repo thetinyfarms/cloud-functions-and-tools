@@ -4,8 +4,9 @@ import datetime
 from google.cloud import bigquery
 
 DURATIONS = ["1m", "15m", "90m", "8h"]
+# Threshold is how many minutes we keep the data for
+THRESHOLD = [1.5*60, 60*24*7, 60*24*30, 60*24*365] 
 SCHEMAS = ["latest","1m", "15m", "90m", "8h"]
-
 
 def aggregate_data(context=None):
     if request.method != 'POST':
@@ -30,17 +31,18 @@ def aggregate_data(context=None):
             time_scale = "MINUTE"
             truncate = "HOUR"
         case "8h":
-            start = end - datetime.timedelta(hours=8)
+            start = end - datetime.timedelta(hours=interval)
             time_scale = "HOUR"
             truncate = "DAY"
         case _:
             raise ValueError(f"Invalid duration: {duration}")
         
-    duration_before = SCHEMAS[DURATIONS.index(duration)]
+    duration_index = DURATIONS.index(duration)
+    duration_before = SCHEMAS[duration_index]
     value_col = "average" if duration_before != "latest" else "value"
     time_col = "timestamp"
 
-    delete_threshold = end - datetime.timedelta(minutes=90)
+    delete_threshold = end - datetime.timedelta(minutes=THRESHOLD[duration_index])
     
     # Aggregate the data
     aggregation_query = f"""
@@ -77,7 +79,7 @@ def aggregate_data(context=None):
     """
 
     deletion_query = f"""
-        DELETE FROM `main.sensor_data_latest`
+        DELETE FROM `main.{duration_before}`
         WHERE timestamp < '{delete_threshold.isoformat("T")}Z' 
             
     """
@@ -90,10 +92,12 @@ def aggregate_data(context=None):
     assert type(rows_affected_agg) == int
 
     deletion_job = client.query(deletion_query)
-    if DURATIONS.index(duration) == len(DURATIONS) - 1:
-        # Run the deletion query
-        deletion_result = deletion_job.result()
-        assert deletion_job.state == 'DONE'
+    # Run the deletion query
+    deletion_result = deletion_job.result()
+    assert deletion_job.state == 'DONE'
+    rows_affected_del = deletion_job.num_dml_affected_rows
+    assert type(rows_affected_agg) == int
+
 
     # Check for errors in the jobs
     if aggregation_job.errors or deletion_job.errors:
@@ -110,11 +114,10 @@ def aggregate_data(context=None):
         'success': True,
         'rows_affected': {
                 'aggregation': rows_affected_agg,
-                'deletion':  deletion_job.num_dml_affected_rows or 0 ,
+                'deletion':  rows_affected_del,
                 'start': start.isoformat("T")+'Z',
                 'end': end.isoformat("T")+'Z'
             },
         }
         logging.warning(f"Response data: {response_data}")  
         return jsonify(response_data), 200
-    
