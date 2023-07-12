@@ -1,18 +1,23 @@
 import logging
-from flask import abort, jsonify
+from flask import abort, jsonify, request
 import datetime
 from google.cloud import bigquery
 
 DURATIONS = ["1m", "15m", "90m", "8h"]
-SCHEMAS = ["latest","m", "15m", "90m", "8h"]
+SCHEMAS = ["latest","1m", "15m", "90m", "8h"]
 
 
-def aggregate_data(request, context=None):
-    #if request.method != 'POST':
-    #    return abort(405)
-    duration = "1m" # = request.values.get('duration')
-    #if duration not in DURATIONS:
-    #    return abort(400)
+def aggregate_data(context=None):
+    if request.method != 'POST':
+        return abort(405)
+    # Get duration from post request
+    request_json = request.get_json()
+    if not request_json:
+        return abort(400)
+    duration = request_json.get('duration')
+        
+    if duration not in DURATIONS:
+        return abort(400)
     
     client = bigquery.Client()
     assert client.project == 'tinyfarms-website'
@@ -111,6 +116,5 @@ def aggregate_data(request, context=None):
             },
         }
         logging.warning(f"Response data: {response_data}")  
-        # return jsonify(response_data), 200
+        return jsonify(response_data), 200
     
-aggregate_data(None)
